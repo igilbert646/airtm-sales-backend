@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import anthropic
+import requests
 import os
 
 app = Flask(__name__)
@@ -20,17 +20,31 @@ def chat():
         if not messages:
             return jsonify({'error': 'Messages are required'}), 400
         
-        client = anthropic.Anthropic(api_key=api_key)
+        headers = {
+            'Content-Type': 'application/json',
+            'x-api-key': api_key,
+        }
         
-        response = client.messages.create(
-            model='claude-sonnet-4-20250514',
-            max_tokens=1024,
-            system=system,
-            messages=messages
+        payload = {
+            'model': 'claude-sonnet-4-20250514',
+            'max_tokens': 1024,
+            'system': system,
+            'messages': messages
+        }
+        
+        response = requests.post(
+            'https://api.anthropic.com/v1/messages',
+            json=payload,
+            headers=headers,
+            timeout=30
         )
         
+        if response.status_code != 200:
+            return jsonify({'error': response.text}), response.status_code
+        
+        data = response.json()
         return jsonify({
-            'content': [{'text': response.content[0].text}]
+            'content': [{'text': data['content'][0]['text']}]
         })
     
     except Exception as e:
